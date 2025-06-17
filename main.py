@@ -1,12 +1,14 @@
+import os
 from flask import Flask, request
 import requests
 
 app = Flask(__name__)
 
-VK_SECRET = 'your_vk_secret'
-CONFIRMATION_TOKEN = 'your_confirmation_token'
-ACCESS_TOKEN = 'your_group_access_token'
-GROUP_ID = 'your_group_id'
+# Получаем все секреты из переменных окружения
+VK_SECRET = os.environ.get('VK_SECRET')
+CONFIRMATION_TOKEN = os.environ.get('CONFIRMATION_TOKEN')
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+GROUP_ID = int(os.environ.get('GROUP_ID', '0'))
 
 blacklist = {
     'оскорбления': [
@@ -42,12 +44,15 @@ def vk_api(method, params):
 def vk_callback():
     data = request.get_json()
 
+    # Подтверждение сервера ВК
     if data.get('type') == 'confirmation':
         return CONFIRMATION_TOKEN
 
+    # Проверяем секретный ключ, чтобы не пускать чужаков
     if data.get('secret') != VK_SECRET:
         return 'invalid secret', 403
 
+    # Обрабатываем новое сообщение
     if data.get('type') == 'message_new':
         message = data['object']['message']
         text = message.get('text', '').lower()
@@ -55,6 +60,7 @@ def vk_callback():
         if any(word in text for word in all_blacklisted_keywords):
             vk_api('groups.ban', {'group_id': GROUP_ID, 'owner_id': user_id})
 
+    # Обрабатываем новый комментарий на стене
     elif data.get('type') == 'wall_reply_new':
         comment = data['object']
         text = comment.get('text', '').lower()
@@ -70,4 +76,3 @@ if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
