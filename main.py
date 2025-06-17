@@ -35,6 +35,28 @@ all_blacklisted_keywords = set()
 for category in blacklist.values():
     all_blacklisted_keywords.update(category)
 
+warnings = {}
+
+def send_warning(user_id):
+    message = "⚠️ Внимание! Ваше сообщение содержит запрещённые слова. Пожалуйста, исправьтесь, иначе вы будете заблокированы."
+    vk_api('messages.send', {'user_id': user_id, 'message': message, 'random_id': 0})
+
+def ban_user(user_id):
+    vk_api('groups.ban', {'group_id': GROUP_ID, 'owner_id': user_id})
+
+def contains_blacklist(text):
+    text = text.lower()
+    return any(word in text for word in all_blacklisted_keywords)
+
+def process_violation(user_id):
+    current_warnings = warnings.get(user_id, 0)
+    if current_warnings == 0:
+        send_warning(user_id)
+        warnings[user_id] = 1
+    else:
+        ban_user(user_id)
+        warnings[user_id] = 2
+        
 def vk_api(method, params):
     params['access_token'] = ACCESS_TOKEN
     params['v'] = '5.199'
